@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Symfony\Component\Console\Application;
+use SimpleCode\Command\ChatCommand;
+use SimpleCode\Command\ConfigCommand;
+use SimpleCode\Command\ToolsCommand;
+
+$application = new Application('SimpleCode', '0.1.0');
+$application->add(new ChatCommand());
+$application->add(new ConfigCommand());
+$application->add(new ToolsCommand());
+$application->setDefaultCommand('chat', true);
+$application->run();
