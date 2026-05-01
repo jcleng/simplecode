@@ -33,7 +33,22 @@ class Client
 
     public function addMessage(array $message): void
     {
-        $this->messages[] = $message;
+        $this->messages[] = $this->sanitizeMessage($message);
+    }
+
+    /**
+     * Recursively sanitize message to ensure valid UTF-8
+     */
+    private function sanitizeMessage(array $message): array
+    {
+        foreach ($message as $key => $value) {
+            if (is_string($value)) {
+                $message[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            } elseif (is_array($value)) {
+                $message[$key] = $this->sanitizeMessage($value);
+            }
+        }
+        return $message;
     }
 
     public function getMessages(): array
