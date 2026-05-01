@@ -26,3 +26,8 @@
   }
 }
 ```
+- 运行
+
+```shell
+./bin/simplecode
+```
