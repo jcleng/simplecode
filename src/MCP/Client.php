@@ -199,21 +199,32 @@ class Client
             $texts = [];
             foreach ($data['result']['content'] as $item) {
                 if ($item['type'] === 'text') {
-                    $texts[] = $item['text'];
+                    $texts[] = $this->ensureUtf8($item['text']);
                 }
             }
             return implode("\n", $texts);
         }
 
         if (isset($data['result'])) {
-            return json_encode($data['result'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            return json_encode($data['result'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
         if (isset($data['error'])) {
-            return 'Error: ' . json_encode($data['error'], JSON_UNESCAPED_UNICODE);
+            return 'Error: ' . json_encode($data['error'], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
-        return json_encode($data, JSON_PRETTY_PRINT);
+        return json_encode($data, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    /**
+     * Ensure string is valid UTF-8
+     */
+    private function ensureUtf8(string $text): string
+    {
+        if (!mb_check_encoding($text, 'UTF-8')) {
+            return mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        }
+        return $text;
     }
 
     /**
