@@ -164,9 +164,20 @@ PROMPT;
         $io->newLine();
 
         while (true) {
-            $userInput = $io->ask('👨');
+            if (extension_loaded('readline')) {
+                $userInput = readline('👨 ');
+                if ($userInput === false) {
+                    $userInput = null;
+                }
+            } else {
+                $userInput = $io->ask('👨');
+            }
             if ($userInput === null || strtolower($userInput) === 'quit') {
                 break;
+            }
+
+            if (extension_loaded('readline') && $userInput !== '') {
+                readline_add_history($userInput);
             }
 
             $llm->addMessage(['role' => 'user', 'content' => $userInput]);
