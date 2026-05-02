@@ -14,12 +14,8 @@ class ToolRegistry
 
     private function registerDefaults(): void
     {
-        $this->register(new ReadTool());
-        $this->register(new WriteTool());
-        $this->register(new EditTool());
-        $this->register(new BashTool());
-        $this->register(new GlobTool());
-        $this->register(new GrepTool());
+        // No local tools registered - all tools are provided by MCP server
+        // Local tools have been removed as they were unused
     }
 
     public function register(ToolInterface $tool): void
