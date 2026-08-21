@@ -47,6 +47,11 @@ class Config
         return $this->get('base_url') ?? 'https://api.openai.com/v1';
     }
 
+    public function getMcpBaseUrl(): string
+    {
+        return $this->get('mcp_base_url') ?? 'http://localhost:3006/mcp';
+    }
+
     public function getModel(): string
     {
         return $this->get('model') ?? 'gpt-4o';

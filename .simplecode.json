@@ -1,5 +1,6 @@
 {
     "api_key": "-",
     "base_url": "http://127.0.0.1:8080/v1/",
-    "model": "DeepSeek-V3.2"
+    "model": "DeepSeek-V3.2",
+    "mcp_base_url": "http://127.0.0.1:3006/mcp"
 }

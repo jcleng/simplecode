@@ -3,6 +3,7 @@
 namespace SimpleCode\MCP;
 
 use GuzzleHttp\Client as HttpClient;
+use SimpleCode\Util\Config;
 
 class Client
 {
@@ -12,8 +13,11 @@ class Client
     private array $resources = [];
     private array $prompts = [];
 
-    public function __construct(string $baseUrl = 'http://localhost:3006/mcp')
+    public function __construct(?string $baseUrl = null)
     {
+        if ($baseUrl === null) {
+            $baseUrl = (new Config())->getMcpBaseUrl();
+        }
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->http = new HttpClient([
             'timeout' => 60,

@@ -133,7 +133,7 @@ PROMPT;
 
         $llm = new LLMClient($config);
         $tools = new ToolRegistry();
-        $mcp = new MCPClient('http://localhost:3006/mcp');
+        $mcp = new MCPClient();
 
         // Initialize MCP and get available tools
         $io->write('<info>🔄 Initializing MCP server...</info>');
