@@ -364,22 +364,11 @@ class Client
      */
     public function convertToMCP(string $jsonl): string
     {
-        $lines = explode("\n", trim($jsonl));
         $mcpCalls = [];
         $currentCall = null;
 
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) {
-                continue;
-            }
-
-            $data = json_decode($line, true);
-            if (!$data) {
-                continue;
-            }
-
-            $type = $data['type'] ?? '';
+        foreach ($this->parseJsonRows($jsonl) as $data) {
+            $type = $this->normalizeType((string) ($data['type'] ?? ''));
 
             if ($type === 'function_call_start') {
                 $currentCall = [
@@ -387,7 +376,7 @@ class Client
                     'id' => $data['call_id'] ?? 1,
                     'method' => 'tools/call',
                     'params' => [
-                        'name' => $data['name'],
+                        'name' => $data['name'] ?? '',
                         'arguments' => new \stdClass(),
                     ],
                 ];
@@ -396,7 +385,10 @@ class Client
                 if ($currentCall['params']['arguments'] instanceof \stdClass) {
                     $currentCall['params']['arguments'] = [];
                 }
-                $currentCall['params']['arguments'][$data['key']] = $data['value'];
+                $key = (string) ($data['key'] ?? '');
+                if ($key !== '') {
+                    $currentCall['params']['arguments'][$key] = $data['value'] ?? null;
+                }
             } elseif ($type === 'function_call_end' && $currentCall) {
                 $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES);
                 $currentCall = null;
@@ -404,10 +396,94 @@ class Client
         }
 
         if ($currentCall) {
-            $mcpCalls[] = json_encode($currentCall);
+            $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES);
         }
 
         return implode("\n", $mcpCalls);
+    }
+
+    /**
+     * 将 JSONL 文本解析为 JSON 对象数组(拆分跨多行的对象)
+     * Parse JSONL text into an array of JSON objects (splits objects spanning multiple lines)
+     */
+    private function parseJsonRows(string $jsonl): array
+    {
+        $rows = [];
+        foreach ($this->splitJsonRows($jsonl) as $raw) {
+            $data = json_decode($raw, true);
+            if (is_array($data)) {
+                $rows[] = $data;
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * 按花括号配对把 JSONL 拆成完整 JSON 片段,容忍对象跨多行/格式化输出
+     * Split JSONL into complete JSON fragments by brace matching, tolerating objects spanning lines / pretty printing
+     */
+    private function splitJsonRows(string $jsonl): array
+    {
+        $rows = [];
+        $buffer = '';
+        $depth = 0;
+        $inString = false;
+        $escaped = false;
+        $len = strlen($jsonl);
+
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $jsonl[$i];
+            if ($inString) {
+                $buffer .= $ch;
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($ch === '\\') {
+                    $escaped = true;
+                } elseif ($ch === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            switch ($ch) {
+                case '"':
+                    $inString = true;
+                    $buffer .= $ch;
+                    break;
+                case '{':
+                    $depth++;
+                    $buffer .= $ch;
+                    break;
+                case '}':
+                    $depth--;
+                    $buffer .= $ch;
+                    if ($depth === 0) {
+                        $rows[] = trim($buffer);
+                        $buffer = '';
+                    }
+                    break;
+                default:
+                    $buffer .= $ch;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * 归一化容错的 type 名(如 functioncall_start / callstart -> function_call_start)
+     * Normalize tolerant type names (e.g. functioncall_start / callstart -> function_call_start)
+     */
+    private function normalizeType(string $type): string
+    {
+        $k = strtolower(preg_replace('/[^a-z]/', '', $type) ?? '');
+        return match ($k) {
+            'functioncallstart', 'callstart' => 'function_call_start',
+            'functioncallend', 'callend' => 'function_call_end',
+            'parameter', 'parameters', 'param', 'params' => 'parameter',
+            'description', 'desc' => 'description',
+            default => $type,
+        };
     }
 
     public function getTools(): array

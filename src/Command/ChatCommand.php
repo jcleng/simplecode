@@ -274,6 +274,7 @@ PROMPT;
 
         if (empty($mcpJsonl)) {
             $io->writeln("<error>Failed to convert JSONL format</error>");
+            $this->debugJsonlTypes($jsonl, $io);
             return null;
         }
 
@@ -289,6 +290,28 @@ PROMPT;
         $io->newLine();
 
         return $formattedResponse;
+    }
+
+    /**
+     * 输出 JSONL 逐行诊断:每行的 type 及是否可解码,便于定位问题
+     * Print per-line JSONL diagnostics: each line's type and decodability, to help locate issues
+     */
+    private function debugJsonlTypes(string $jsonl, SymfonyStyle $io): void
+    {
+        $io->writeln('<comment>JSONL diagnostic:</comment>');
+        foreach (explode("\n", trim($jsonl)) as $i => $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $data = json_decode($line, true);
+            if (!is_array($data)) {
+                $io->writeln("  line " . ($i + 1) . ": <error>undecodable JSON</error>");
+            } else {
+                $type = is_string($data['type'] ?? '') ? $data['type'] : '(none)';
+                $io->writeln("  line " . ($i + 1) . ": type=$type");
+            }
+        }
     }
 
     private function showThinking(SymfonyStyle $io): void
