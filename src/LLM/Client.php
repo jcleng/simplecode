@@ -4,6 +4,7 @@ namespace SimpleCode\LLM;
 
 use GuzzleHttp\Client as HttpClient;
 use SimpleCode\Util\Config;
+use SimpleCode\Util\Logger;
 
 class Client
 {
@@ -91,6 +92,9 @@ class Client
      */
     public function chatStream(array $tools, callable $onChunk): array
     {
+        $logger = new Logger();
+        $logger->log('llm_stream', '--- stream start | model=' . $this->config->getModel() . ' | url=' . $this->config->getBaseUrl());
+
         $body = [
             'model' => $this->config->getModel(),
             'messages' => $this->messages,
@@ -102,20 +106,31 @@ class Client
             $body['tool_choice'] = 'auto';
         }
 
-        $response = $this->http->post('chat/completions', [
-            'json' => $body,
-        ]);
+        try {
+            $response = $this->http->post('chat/completions', [
+                'json' => $body,
+            ]);
+            $logger->log('llm_stream', 'HTTP ' . $response->getStatusCode());
+        } catch (\Exception $e) {
+            $logger->log('llm_stream', 'ERROR request failed: ' . $e->getMessage());
+            throw $e;
+        }
 
         $stream = $response->getBody();
         $fullContent = '';
         $toolCalls = [];
         $buffer = '';
+        $readCount = 0;
+        $eventCount = 0;
+        $lineCount = 0;
 
         while (!$stream->eof()) {
             $chunk = $stream->read(1024);
             if ($chunk === '') {
                 continue;
             }
+            $readCount++;
+            $logger->log('llm_stream', '--- raw chunk#' . $readCount . ' size=' . strlen($chunk));
 
             $buffer .= $chunk;
             $lines = explode("\n", $buffer);
@@ -123,7 +138,14 @@ class Client
 
             foreach ($lines as $line) {
                 $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $lineCount++;
                 if (str_starts_with($line, 'data: ')) {
+                    $eventCount++;
+                    $logger->log('llm_stream', 'EVENT#' . $eventCount . ' ' . $line);
+
                     $data = substr($line, 6);
                     if ($data === '[DONE]') {
                         break;
@@ -162,8 +184,14 @@ class Client
                             $toolCalls[$index]['function']['arguments'] .= $tcItem['function']['arguments'];
                         }
                     }
+                } else {
+                    $logger->log('llm_stream', 'LINE#' . $lineCount . ' ' . $line);
                 }
             }
+        }
+
+        if (trim($buffer) !== '') {
+            $logger->log('llm_stream', 'TAIL ' . trim($buffer));
         }
 
         $message = [];
@@ -173,6 +201,8 @@ class Client
         if (!empty($toolCalls)) {
             $message['tool_calls'] = array_values($toolCalls);
         }
+
+        $logger->log('llm_stream', '--- stream end | chunks=' . $readCount . ' | events=' . $eventCount . ' | contentLen=' . mb_strlen($fullContent) . ' | toolCalls=' . count($toolCalls));
 
         return ['choices' => [['message' => $message]]];
     }

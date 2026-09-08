@@ -1,6 +1,6 @@
 {
     "api_key": "-",
     "base_url": "http://192.168.195.18:8081/v1/",
-    "model": "deepseek-v4-pro",
+    "model": "Qwen3.7-Max",
     "mcp_base_url": "http://127.0.0.1:3006/mcp"
 }
