@@ -15,8 +15,6 @@ services:
       - ./config.json:/config/config.json
     working_dir: /srv
     entrypoint: []
-    depends_on:
-      - mcphub
     tty: true
     # ! 配置位置地址为: http://localhost:3006/mcp
     command: ["bash", "-c", "npx -y @srbhptl39/mcp-superassistant-proxy --config /config/config.json --outputTransport streamableHttp --host 0.0.0.0"]
