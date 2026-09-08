@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mcphub": {
+      "type": "streamable-http",
+      "url": "http://localhost:3008/mcp/default"
+    }
+  }
+}

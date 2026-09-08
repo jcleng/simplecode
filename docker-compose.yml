@@ -1,0 +1,22 @@
+services:
+  mcp-proxy: # 运行一个mcp代理
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-mcp-superassistant-proxy
+    container_name: mcp-proxy
+    environment:
+      - NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+      - PUPPETEER_SKIP_DOWNLOAD=true
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    # ports:
+    #   - "3006:3006"
+    network_mode: host
+    volumes:
+      # - "./:/srv"
+      # ! 真实mcp连接
+      - ./config.json:/config/config.json
+    working_dir: /srv
+    entrypoint: []
+    depends_on:
+      - mcphub
+    tty: true
+    # ! 配置位置地址为: http://localhost:3006/mcp
+    command: ["bash", "-c", "npx -y @srbhptl39/mcp-superassistant-proxy --config /config/config.json --outputTransport streamableHttp --host 0.0.0.0"]
