@@ -118,12 +118,140 @@ class Client
 
         $info = "## AVAILABLE TOOLS FOR SUPERASSISTANT\n";
         foreach ($this->tools as $tool) {
-            $description = $tool['description'] ?? '';
             $name = $tool['name'] ?? '';
-            $info .= " - $name\n**Description**:\n$description\n\n";
+            $description = $tool['description'] ?? '';
+            $inputSchema = $tool['inputSchema'] ?? [];
+
+            $info .= " - $name\n**Description**:\n$description\n";
+            $info .= "**Parameters**:\n" . $this->formatParameters($inputSchema) . "\n";
+            $info .= "**Example**:\n" . $this->formatExample($name, $inputSchema) . "\n\n";
         }
 
         return $info;
+    }
+
+    /**
+     * 将 inputSchema 拼装为纯文本参数列表(递归展开 items/object 子结构)
+     * Assemble inputSchema into a plain-text parameter list (recursively expands items/object substructures)
+     */
+    private function formatParameters(array $schema, string $indent = ''): string
+    {
+        $properties = $schema['properties'] ?? [];
+        $required = $schema['required'] ?? [];
+        $lines = [];
+        foreach ($properties as $param => $def) {
+            $def = (array) $def;
+            $type = $this->resolveType($def);
+            $desc = $def['description'] ?? '';
+            $req = in_array($param, $required, true) ? 'required' : 'optional';
+            $marker = $indent === '' ? ($req === 'required' ? '* ' : '  ') : '- ';
+            $line = $indent . $marker . $param . ' (' . $type . ', ' . $req . ')';
+            if ($desc) {
+                $line .= ' - ' . $desc;
+            }
+            if (isset($def['enum']) && is_array($def['enum'])) {
+                $line .= ' [enum: ' . implode(', ', $def['enum']) . ']';
+            }
+            $lines[] = $line;
+
+            if ($type === 'array' && isset($def['items'])) {
+                $items = (array) $def['items'];
+                $lines[] = $indent . '  (items)';
+                if (!empty($items['properties'])) {
+                    $lines[] = $this->formatParameters([
+                        'type' => 'object',
+                        'properties' => $items['properties'],
+                        'required' => $items['required'] ?? [],
+                    ], $indent . '    ');
+                } else {
+                    $lines[] = $indent . '    items type: ' . $this->resolveType($items);
+                }
+            } elseif ($type === 'object' && !empty($def['properties'])) {
+                $lines[] = $this->formatParameters($def, $indent . '    ');
+            }
+        }
+        return $lines ? implode("\n", $lines) : '(none)';
+    }
+
+    /**
+     * 生成该工具的 SuperAssistant JSONL 调用示例(只拼必填参数)
+     * Generate a SuperAssistant JSONL call example for the tool (required params only)
+     */
+    private function formatExample(string $name, array $schema): string
+    {
+        $properties = $schema['properties'] ?? [];
+        $required = $schema['required'] ?? [];
+
+        $params = array_values(array_filter(
+            array_keys($properties),
+            fn($p) => in_array($p, $required, true)
+        ));
+        if (!$params && $properties) {
+            $params = [array_key_first($properties)];
+        }
+
+        $jsonl = [];
+        $jsonl[] = '{"type":"function_call_start","name":' . json_encode($name) . ',"call_id":1}';
+        $jsonl[] = '{"type":"description","text":"Short 1 line of what this function does"}';
+        foreach ($params as $param) {
+            $jsonl[] = '{"type":"parameter","key":' . json_encode($param) . ',"value":' . json_encode($this->sampleValueFor((array) $properties[$param])) . '}';
+        }
+        $jsonl[] = '{"type":"function_call_end","call_id":1}';
+        return "```jsonl\n" . implode("\n", $jsonl) . "\n```";
+    }
+
+    /**
+     * 根据参数定义递归生成示例值(支持嵌套 array/object/items/enum)
+     * Recursively generate a sample value from the parameter definition (nested array/object/items/enum supported)
+     */
+    private function sampleValueFor(array $def)
+    {
+        $type = $this->resolveType($def);
+        switch ($type) {
+            case 'integer':
+            case 'number':
+                return 1;
+            case 'boolean':
+                return true;
+            case 'array':
+                return isset($def['items']) ? [$this->sampleValueFor((array) $def['items'])] : ['ex'];
+            case 'object':
+                $out = [];
+                foreach ($def['properties'] ?? [] as $k => $item) {
+                    $out[$k] = $this->sampleValueFor((array) $item);
+                }
+                return $out ?: ['ex' => 'ex'];
+            case 'null':
+                return null;
+            default:
+                if (isset($def['enum']) && is_array($def['enum']) && $def['enum'] !== []) {
+                    return $def['enum'][0];
+                }
+                return 'ex';
+        }
+    }
+
+    /**
+     * 归一化 JSON Schema 的 type(可能是数组,或来自 anyOf/oneOf)
+     * Normalize a JSON Schema type (may be an array, or come from anyOf/oneOf)
+     */
+    private function resolveType(array $def): string
+    {
+        $type = $def['type'] ?? null;
+        if (is_array($type)) {
+            $nonNull = array_values(array_filter($type, fn($t) => $t !== 'null'));
+            $type = $nonNull ? $nonNull[0] : ($type[0] ?? null);
+        }
+        if (is_string($type) && $type !== '') {
+            return $type;
+        }
+        foreach (['anyOf', 'oneOf'] as $key) {
+            if (isset($def[$key][0]['type'])) {
+                $sub = $def[$key][0]['type'];
+                return is_array($sub) ? ($sub[0] ?? 'string') : $sub;
+            }
+        }
+        return 'string';
     }
 
     /**
@@ -133,11 +261,11 @@ class Client
     {
         try {
             $lines = explode("\n", trim($jsonl));
-            
+
             // 如果是多行，只处理第一行（暂时简化）
             // TODO: 支持批量请求
             $singleJson = $lines[0];
-            
+
             $response = $this->http->post($this->baseUrl, [
                 'body' => $singleJson,
                 'headers' => [
