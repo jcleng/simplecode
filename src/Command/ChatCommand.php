@@ -285,7 +285,7 @@ PROMPT;
         // Send to MCP server
         $formattedResponse = $mcp->send($mcpJsonl);
 
-        $io->writeln("<info>📡 MCP Response:</info>");
+        $io->writeln("<info>📻 MCP Response:</info>");
         $io->writeln($formattedResponse);
         $io->newLine();
 
