@@ -160,7 +160,11 @@ PROMPT;
 
         while (true) {
             if (extension_loaded('readline')) {
-                $userInput = readline('👨 ');
+                $usage = $llm->getUsage();
+                $tokenHint = $usage['total_tokens'] > 0
+                    ? sprintf('[in=%d out=%d] ', $usage['prompt_tokens'], $usage['completion_tokens'])
+                    : '';
+                $userInput = readline('👨 ' . $tokenHint);
                 if ($userInput === false) {
                     $userInput = null;
                 }
@@ -180,7 +184,13 @@ PROMPT;
             $this->processConversation($llm, $tools, $mcp, $io);
         }
 
-        $io->success('Goodbye!');
+        $usage = $llm->getUsage();
+        $io->success(sprintf(
+            'Goodbye! tokens: input=%d / output=%d (total=%d)',
+            $usage['prompt_tokens'],
+            $usage['completion_tokens'],
+            $usage['total_tokens']
+        ));
         return Command::SUCCESS;
     }
 
@@ -206,6 +216,18 @@ PROMPT;
                 $io->newLine(2);
             } else {
                 $io->write("\033[2K\r");
+            }
+
+            if (isset($response['usage'])) {
+                $u = $response['usage'];
+                $mark = !empty($u['estimated']) ? '≈' : '';
+                $io->writeln(sprintf(
+                    "<comment>   %s↑in %d / %s↓out %d tokens</comment>",
+                    $mark,
+                    $u['prompt_tokens'] ?? 0,
+                    $mark,
+                    $u['completion_tokens'] ?? 0
+                ));
             }
 
             if (!isset($response['choices'][0]['message'])) {
