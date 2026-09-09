@@ -116,7 +116,7 @@ class Client
             return '';
         }
 
-        $info = "## AVAILABLE TOOLS FOR SUPERASSISTANT\n";
+        $info = "## AVAILABLE MCP TOOLS FOR SUPERASSISTANT\n";
         foreach ($this->tools as $tool) {
             $name = $tool['name'] ?? '';
             $description = $tool['description'] ?? '';
