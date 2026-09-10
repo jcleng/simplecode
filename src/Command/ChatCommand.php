@@ -6,6 +6,7 @@ use SimpleCode\LLM\Client as LLMClient;
 use SimpleCode\Tool\ToolRegistry;
 use SimpleCode\Util\Config;
 use SimpleCode\MCP\Client as MCPClient;
+use SimpleCode\Util\Logger;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -134,6 +135,7 @@ PROMPT;
         $llm = new LLMClient($config);
         $tools = new ToolRegistry();
         $mcp = new MCPClient();
+        $logger = new Logger();
 
         // Initialize MCP and get available tools
         $io->write('<info>🔄 Initializing MCP server...</info>');
@@ -141,6 +143,8 @@ PROMPT;
             $mcp->init();
             $io->writeln(' <info>Done!</info>');
             $io->writeln(sprintf('Found %d MCP tools', count($mcp->getTools())));
+            $logger->log('mcp_tools', implode("\n", array_column($mcp->getTools(), 'name')));
+
         } catch (\Exception $e) {
             $io->writeln(' <comment>Failed: ' . $e->getMessage() . '</comment>');
         }
@@ -151,6 +155,8 @@ PROMPT;
         if ($mcpToolsInfo) {
             $systemPrompt .= "\n" . $mcpToolsInfo;
         }
+        $logger->log('system_prompt', $systemPrompt);
+
 
         $llm->addMessage(['role' => 'system', 'content' => $systemPrompt]);
         $llm->setTools($tools->getSchemas());
