@@ -123,7 +123,8 @@ class Client
             $inputSchema = $tool['inputSchema'] ?? [];
 
             $info .= " - $name\n**Description**:\n$description\n";
-            $info .= "**Parameters**:\n" . $this->formatParameters($inputSchema) . "\n";
+            $info .= "**InputSchema**:\n" . json_encode($inputSchema, 256) . "\n";
+            // $info .= "**Parameters**:\n" . $this->formatParameters($inputSchema) . "\n";
             $info .= "**Example**:\n" . $this->formatExample($name, $inputSchema) . "\n\n";
         }
 
