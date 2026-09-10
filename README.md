@@ -32,4 +32,10 @@
 ./bin/simplecode
 ```
 
+- docker
+
+```shell
+docker run -it --rm --network host --name simplecode registry.cn-hangzhou.aliyuncs.com/jcleng/simplecode
+```
+
 ![屏幕截图_20260502_143114.png](屏幕截图_20260502_143114.png)
