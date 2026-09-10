@@ -391,13 +391,13 @@ class Client
                     $currentCall['params']['arguments'][$key] = $data['value'] ?? null;
                 }
             } elseif ($type === 'function_call_end' && $currentCall) {
-                $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES);
+                $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES + 256);
                 $currentCall = null;
             }
         }
 
         if ($currentCall) {
-            $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES);
+            $mcpCalls[] = json_encode($currentCall, JSON_UNESCAPED_SLASHES + 256);
         }
 
         return implode("\n", $mcpCalls);
