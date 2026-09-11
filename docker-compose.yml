@@ -1,20 +1,16 @@
 services:
-  mcp-proxy: # 运行一个mcp代理
-    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-mcp-superassistant-proxy
-    container_name: mcp-proxy
+  mcphub: # mcp管理中心
+    image: registry.cn-hangzhou.aliyuncs.com/jcleng/gitbuild-fast-mcphub-docker
+    container_name: mcphub
+    network_mode: host
+    # http://localhost:3008/mcp/default 需要先创建 default 分组
     environment:
-      - NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+      - ADMIN_PASSWORD=jclengpass
+      - PORT=3008
       - PUPPETEER_SKIP_DOWNLOAD=true
       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    # ports:
-    #   - "3006:3006"
-    network_mode: host
     volumes:
-      # - "./:/srv"
-      # ! 真实mcp连接
-      - ./config.json:/config/config.json
-    working_dir: /srv
-    entrypoint: []
-    tty: true
-    # ! 配置位置地址为: http://localhost:3006/mcp
-    command: ["bash", "-c", "npx -y @srbhptl39/mcp-superassistant-proxy --config /config/config.json --outputTransport streamableHttp --host 0.0.0.0"]
+      - "/home/jcleng/work/mywork/:/home/jcleng/work/mywork/"
+      - ./mcp_settings.json:/app/mcp_settings.json
+      # https://github.com/crazywhalecc/static-php-cli
+      - "./php:/usr/bin/php"

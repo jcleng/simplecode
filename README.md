@@ -4,7 +4,7 @@
 
 ```shell
 # 链路
-普通模型(Chat2API)+mcp-superassistant-proxy(mcp转发)+[mcphub.mcp]
+普通模型(Chat2API)+[mcphub.mcp]
 # 数据通信
 模型的jsonl给mcp,mcp返回结果给模型
 # 配置文件

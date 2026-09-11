@@ -9,6 +9,7 @@ class Client
 {
     private HttpClient $http;
     private string $baseUrl;
+    private ?string $sessionId = null;
     private array $tools = [];
     private array $resources = [];
     private array $prompts = [];
@@ -26,17 +27,49 @@ class Client
     }
 
     /**
-     * Initialize by fetching all available tools, resources, and prompts
+     * MCP session handshake: initialize -> notifications/initialized -> fetch tools/resources/prompts
+     * MCP 会话握手: initialize -> notifications/initialized -> 获取 tools/resources/prompts
      */
     public function init(): void
     {
-        $this->tools = $this->callMethod('tools/list', 1)['tools'] ?? [];
-        $this->resources = $this->callMethod('resources/list', 2)['resources'] ?? [];
-        $this->prompts = $this->callMethod('prompts/list', 3)['prompts'] ?? [];
+        $initPayload = [
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => [
+                'protocolVersion' => '2025-03-26',
+                'capabilities' => new \stdClass(),
+                'clientInfo' => ['name' => 'simplecode-mcp-client', 'version' => '1.0.0'],
+            ],
+        ];
+
+        $response = $this->http->post($this->baseUrl, [
+            'json' => $initPayload,
+            'stream' => true,
+            'headers' => [
+                'Accept' => 'application/json, text/event-stream',
+            ],
+        ]);
+
+        $this->sessionId = $response->getHeaderLine('Mcp-Session-Id') ?: null;
+        if ($this->sessionId === null) {
+            throw new \RuntimeException('MCP server did not return Mcp-Session-Id');
+        }
+
+        $notifyPayload = [
+            'jsonrpc' => '2.0',
+            'method' => 'notifications/initialized',
+        ];
+        $this->callMethodRaw($notifyPayload);
+
+        $this->tools = $this->callMethod('tools/list', 2)['tools'] ?? [];
+        $this->resources = $this->callMethod('resources/list', 3)['resources'] ?? [];
+        $this->prompts = $this->callMethod('prompts/list', 4)['prompts'] ?? [];
     }
 
     /**
      * Call MCP method via JSON-RPC
+     * 通过 JSON-RPC 调用 MCP 方法
      */
     private function callMethod(string $method, int $id): array
     {
@@ -47,13 +80,27 @@ class Client
             'params' => new \stdClass(),
         ];
 
+        return $this->callMethodRaw($request);
+    }
+
+    /**
+     * Send a raw JSON-RPC request (with session ID header if available)
+     * 发送原始 JSON-RPC 请求（如有 session ID 则附带 Mcp-Session-Id 头）
+     */
+    private function callMethodRaw(array $payload): array
+    {
+        $headers = [
+            'Accept' => 'application/json, text/event-stream',
+        ];
+        if ($this->sessionId !== null) {
+            $headers['Mcp-Session-Id'] = $this->sessionId;
+        }
+
         try {
             $response = $this->http->post($this->baseUrl, [
-                'json' => $request,
+                'json' => $payload,
                 'stream' => true,
-                'headers' => [
-                    'Accept' => 'application/json, text/event-stream',
-                ],
+                'headers' => $headers,
             ]);
 
             $contentType = $response->getHeaderLine('Content-Type');
@@ -66,7 +113,7 @@ class Client
             $result = json_decode($body->getContents(), true);
             return $result['result'] ?? [];
         } catch (\Exception $e) {
-            error_log("MCP call $method failed: " . $e->getMessage());
+            error_log("MCP call failed: " . $e->getMessage());
             return [];
         }
     }
@@ -257,6 +304,7 @@ class Client
 
     /**
      * Send JSONL (MCP JSON-RPC calls) to server
+     * 发送 JSONL（MCP JSON-RPC 调用）到服务器
      */
     public function send(string $jsonl): string
     {
@@ -267,12 +315,17 @@ class Client
             // TODO: 支持批量请求
             $singleJson = $lines[0];
 
+            $headers = [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json, text/event-stream',
+            ];
+            if ($this->sessionId !== null) {
+                $headers['Mcp-Session-Id'] = $this->sessionId;
+            }
+
             $response = $this->http->post($this->baseUrl, [
                 'body' => $singleJson,
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json, text/event-stream',
-                ],
+                'headers' => $headers,
                 'stream' => true,
             ]);
 
