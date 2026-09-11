@@ -1,5 +1,7 @@
 ### `simplecode`基于`mcp`的 AI Agent 编码工具(php实现)
 
+让不支持`tool`调用的模型响应`jsonl`格式的数据调用mcp工具实现`tool`的功能,如文件读写,命令执行等.
+
 - 原理
 
 ```shell
