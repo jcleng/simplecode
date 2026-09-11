@@ -120,6 +120,28 @@ PROMPT;
     {
         $this->setDescription('Start an interactive chat session with the LLM agent');
     }
+    /**
+     * 获取定义的工作目录
+     *
+     * @return string
+     */
+    protected function prompt_workspace()
+    {
+        $pwd = getenv("PWD");
+        if (empty($pwd)) {
+            return '';
+        }
+        $prompt = <<<PROMPT
+
+工作目录为：`$pwd`;
+    规则：
+    1. 所有文件读写、脚本执行、路径引用都必须基于该目录。
+    2. 使用相对路径时，默认相对于`$pwd`。
+    3. 若用户提到"当前目录","这里"，均指代`$pwd`。
+
+PROMPT;
+        return $prompt;
+    }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -151,6 +173,7 @@ PROMPT;
 
         // Build system prompt with MCP tools info
         $systemPrompt = self::SYSTEM_PROMPT;
+        $systemPrompt .= "\n" . $this->prompt_workspace();
         $mcpToolsInfo = $mcp->getToolsInfo();
         if ($mcpToolsInfo) {
             $systemPrompt .= "\n" . $mcpToolsInfo;
